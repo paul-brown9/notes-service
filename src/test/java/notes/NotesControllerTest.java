@@ -90,7 +90,7 @@ class NotesControllerTest {
                 .andExpect(status().isCreated())
                 .andReturn();
         JsonNode teamBody = objectMapper.readTree(teamCreate.getResponse().getContentAsString());
-        assert teamBody.get("id").asText().equals("team-1");
+        assertThat(teamBody.get("id").asText()).isEqualTo("team-1");
 
         mockMvc.perform(post("/api/teams/team-1/members")
                         .header("Authorization", "Bearer api-key-alice")
