@@ -1,24 +1,46 @@
 # Team Notes Service
 
-Zero-dependency Java 17+ REST backend (JDK `HttpServer`, virtual threads, JSON file persistence).
+This project is a Spring Boot REST backend for a multi-team note-taking service backed by MongoDB.
 
-    bash run.sh            # compiles to ./out and starts on :8080
-    bash smoke.sh          # end-to-end check against a running server
+## Project layout
 
-Env: `PORT` (8080), `DATA_FILE` (data/notes.json), `ADMIN_TOKEN` (if set, creating users requires header `X-Admin-Token`).
+- `NotesController` maps HTTP requests to the service and enforces access rules.
+- `ApiInput` validates and normalizes values from request bodies.
+- `NotesService` contains application logic and MongoDB queries.
+- `User`, `Team`, `Membership`, and `Note` are MongoDB documents.
+- `Role` defines team permissions; `ApiExceptionHandler` formats API errors.
+- `src/test` contains controller tests that run without a MongoDB server.
 
-Auth: `Authorization: Bearer <apiKey>` (key returned once by `POST /api/users`; only its SHA-256 is stored).
+Quick start:
 
-| Method | Path | Notes |
-|---|---|---|
-| GET | /health | |
-| POST | /api/users | `{name}` -> returns `apiKey` |
-| GET | /api/me | |
-| GET/POST | /api/teams | creator becomes OWNER |
-| GET/POST | /api/teams/{t}/members | POST `{userId, role}` owner-only; roles OWNER/EDITOR/VIEWER |
-| DELETE | /api/teams/{t}/members/{userId} | owner-only; last owner protected |
-| GET | /api/teams/{t}/notes?q=&tag=&limit=&offset= | search + paging |
-| POST | /api/teams/{t}/notes | `{title, body, tags[]}` (EDITOR+) |
-| GET/PUT/DELETE | /api/teams/{t}/notes/{id} | PUT accepts `version` -> 409 on conflict |
+    docker compose up -d mongo
+    mvn spring-boot:run
 
-Non-members get 404 for a team (existence isn't leaked); viewers get 403 on writes.
+Optional env vars:
+
+- PORT=8080
+- MONGODB_URI=mongodb://localhost:27017/notes-service
+- ADMIN_TOKEN=optional-secret
+
+API summary:
+
+- GET /health
+- POST /api/users {"name": "Alice"} -> returns id and apiKey
+- GET /api/me (Authorization: Bearer <apiKey>)
+- GET /api/teams
+- POST /api/teams {"name": "Platform"}
+- GET /api/teams/{teamId}/members
+- POST /api/teams/{teamId}/members {"userId": "...", "role": "OWNER|EDITOR|VIEWER"}
+- DELETE /api/teams/{teamId}/members/{userId}
+- GET /api/teams/{teamId}/notes?q=&tag=&limit=&offset=
+- POST /api/teams/{teamId}/notes {"title": "...", "body": "...", "tags": ["meeting", "weekly"]}
+- GET /api/teams/{teamId}/notes/{noteId}
+- PUT /api/teams/{teamId}/notes/{noteId} {"title": ..., "body": ..., "tags": [...], "version": 2}
+- DELETE /api/teams/{teamId}/notes/{noteId}
+
+Notes:
+
+- Non-members get 404 for a team to avoid leaking existence.
+- Viewers cannot modify notes or memberships.
+- Version numbers are used for optimistic concurrency checks.
+- API keys are returned once; only a SHA-256 hash is stored.
